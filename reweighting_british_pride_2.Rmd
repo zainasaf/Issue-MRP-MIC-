@@ -1,0 +1,107 @@
+---
+title: "British Pride - Reweighting"
+output: html_document
+date: "2026-02-22"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(here)
+```
+
+```{r}
+
+
+country_avg_poll <- read.csv(here("output", "country_avg_british_pride_2.csv"))
+
+
+aux <- read.csv("https://mrp-psf.ams3.digitaloceanspaces.com/other-files/const_data_full_new.csv")
+aux <- aux %>% mutate(const_name = gsub("Ynys Mon", "Ynys Môn", const_name))
+
+
+aux <- aux %>%
+  mutate(
+    region_2 = case_when(
+      region_name %in% c(
+        "East Midlands", "East of England", "Greater London",
+        "North East England", "North West England", "South East England",
+        "South West England", "West Midlands", "Yorkshire and the Humber",
+        "London", "England"
+      ) ~ "England",
+      region_name == "Scotland" ~ "Scotland",
+      region_name == "Wales"    ~ "Wales",
+      TRUE ~ NA_character_
+    )
+  )
+
+# Load constituency-level MRP predictions
+preds_pride <- read.csv(here("output", "brit_pride_constituency_summary.csv"))
+
+
+preds_pride <- preds_pride %>%
+  left_join(aux %>% select(const_name, region_2), by = "const_name") %>%
+  mutate(
+    region_2 = case_when(
+      const_name == "Ynys MÃ´n" ~ "Wales",
+      TRUE                      ~ region_2
+    )
+  )
+
+
+preds_pride <- preds_pride %>%
+  rename(net_score_preds = net_score)
+
+# Join poll country averages onto predictions
+preds_pride <- preds_pride %>%
+  left_join(
+    country_avg_poll %>% select(country, net_score_poll_cntry_avg),
+    by = c("region_2" = "country")
+  )
+
+# Compute MRP average net score per country
+preds_pride <- preds_pride %>%
+  group_by(region_2) %>%
+  mutate(mrp_average = mean(net_score_preds)) %>%
+  ungroup()
+
+
+
+# multiplier and reweighted  net score
+preds_pride <- preds_pride %>%
+  mutate(
+    mult = net_score_poll_cntry_avg / mrp_average,   # region-level scaling factor
+    pride_net_reweighted = net_score_preds * mult          # rescale each constituency MRP
+  )
+
+
+# Additive adjustment: shift each constituency by the gap between
+# the poll country average and the MRP country average
+preds_pride_additive <- preds_pride %>%
+  mutate(
+    adjustment           = net_score_poll_cntry_avg - mrp_average,
+    net_score_reweighted = net_score_preds + adjustment
+  )
+
+
+
+# Output reweighted scores
+preds_pride_reweighted <- preds_pride %>%
+  select(const_name, pride_net_reweighted)
+
+write.csv(preds_pride_reweighted, here("output", "preds_british_pride_reweighted.csv"), row.names = FALSE)
+
+
+
+
+preds_pride_additive_small <- preds_pride_additive %>% 
+  select(const_name, net_score_reweighted)
+
+
+
+write.csv(preds_pride_additive_small, here("output", "preds_pride_additive_small.csv"), row.names = FALSE)
+
+```
