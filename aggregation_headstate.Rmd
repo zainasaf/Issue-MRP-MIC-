@@ -1,0 +1,31 @@
+---
+title: "Untitled"
+output: html_document
+date: "2026-02-16"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+library(here)
+library(tidyverse)
+
+
+```
+
+
+```{r}
+
+df <- read_csv(here("data", "headstate_constituency_combined.csv"))
+
+
+df <- df %>% 
+  mutate(mean_percent = mean * 100)
+
+
+
+write.csv(df, here("output", "headstate_constituency.csv"), row.names = FALSE)
+
+
