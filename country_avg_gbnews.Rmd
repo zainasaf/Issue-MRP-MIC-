@@ -1,0 +1,81 @@
+---
+title: "GB News Bias - Country Poll Average"
+output: html_document
+date: "2026-03-13"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(here)
+```
+
+```{r}
+
+polldata <- read.csv("https://mrp-psf.ams3.digitaloceanspaces.com/polls/winter_10k.csv")
+
+
+print(table(polldata$gbnews_bias))
+
+
+polldata <- polldata %>%
+  mutate(
+    gbnews_bias_numeric = case_when(
+      gbnews_bias == "A very strong left-wing bias"  ~ 5,
+      gbnews_bias == "A moderate left-wing bias"     ~ 4,
+      gbnews_bias == "No left or right wing bias"    ~ 3,
+      gbnews_bias == "A moderate right-wing bias"    ~ 2,
+      gbnews_bias == "A very strong right-wing bias" ~ 1,
+      gbnews_bias == "Don’t know"                    ~ 6,
+      TRUE ~ NA_real_
+    )
+  )
+
+
+polldata_small <- polldata %>%
+  select(gbnews_bias, gbnews_bias_numeric, region) %>%
+  mutate(
+    country = case_when(
+      region %in% c(
+        "East Midlands", "East of England", "Greater London",
+        "North East England", "North West England", "South East England",
+        "South West England", "West Midlands", "Yorkshire and the Humber",
+        "London", "England"
+      ) ~ "England",
+      region == "Scotland" ~ "Scotland",
+      region == "Wales"    ~ "Wales",
+      TRUE                  ~ NA_character_
+    )
+  )
+
+# Country-level proportions for all categories
+country_avg_poll_full <- polldata_small %>%
+  filter(!is.na(country), !is.na(gbnews_bias_numeric)) %>%
+  count(country, gbnews_bias_numeric) %>%
+  group_by(country) %>%
+  mutate(prop = n / sum(n) * 100) %>%
+  ungroup() %>%
+  select(country, gbnews_bias_numeric, prop) %>%
+  pivot_wider(names_from = gbnews_bias_numeric, values_from = prop) %>%
+  rename(
+    very_right = `1`,
+    mod_right  = `2`,
+    no_bias    = `3`,
+    mod_left   = `4`,
+    very_left  = `5`,
+    dont_know  = `6`
+  ) %>%
+  mutate(net_score_poll_cntry_avg = very_right + mod_right - mod_left - very_left)
+
+write.csv(country_avg_poll_full, here("output", "country_avg_poll_gbnews_full.csv"), row.names = FALSE)
+
+country_avg_poll <- country_avg_poll_full %>%
+  select(country, net_score_poll_cntry_avg)
+
+write.csv(country_avg_poll, here("output", "country_avg_poll_gbnews.csv"), row.names = FALSE)
+
+print(country_avg_poll)
+```
