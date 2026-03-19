@@ -1,0 +1,102 @@
+---
+title: "NATO MRP Reweighting"
+output: html_document
+date: "2026-03-02"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(here)
+```
+
+```{r}
+
+country_avg_poll <- read.csv(here("output", "country_poll_nato.csv"))
+
+
+country_avg_poll <- country_avg_poll %>%
+  select(country, net_score_poll_cntry_avg = net_score)
+
+# Load constituency auxiliary data (for region)
+aux <- read.csv("https://mrp-psf.ams3.digitaloceanspaces.com/other-files/const_data_full_new.csv")
+aux <- aux %>% mutate(const_name = gsub("Ynys Mon", "Ynys Môn", const_name))
+
+# Create region_2 variable in aux
+aux <- aux %>%
+  mutate(
+    region_2 = case_when(
+      region_name %in% c(
+        "East Midlands", "East of England", "Greater London",
+        "North East England", "North West England", "South East England",
+        "South West England", "West Midlands", "Yorkshire and the Humber",
+        "London", "England"
+      ) ~ "England",
+      region_name == "Scotland" ~ "Scotland",
+      region_name == "Wales"    ~ "Wales",
+      TRUE ~ NA_character_
+    )
+  )
+
+
+preds_nato <- read.csv(here("output", "nato_constituency_summary_revised.csv"))
+
+# Join region onto predictions
+preds_nato <- preds_nato %>%
+  left_join(aux %>% select(const_name, region_2), by = "const_name") %>%
+  mutate(
+    region_2 = case_when(
+      const_name == "Ynys MÃ´n" ~ "Wales",
+      TRUE                      ~ region_2
+    )
+  )
+
+
+preds_nato <- preds_nato %>%
+  rename(net_score_preds = net_score)
+
+preds_nato <- preds_nato %>%
+  left_join(
+    country_avg_poll %>% select(country, net_score_poll_cntry_avg),
+    by = c("region_2" = "country")
+  )
+
+# Compute MRP average net score per country
+preds_nato <- preds_nato %>%
+  group_by(region_2) %>%
+  mutate(mrp_average = mean(net_score_preds)) %>%
+  ungroup()
+
+# Additive adjustment: shift each constituency by the gap between
+# the poll country average and the MRP country average
+
+# Applies an additive adjustment to align MRP estimates with external poll margins,
+# correcting for any systematic over- or under-estimation in the MRP predictions.
+# For each category, the difference between the poll benchmark and the MRP national 
+# average (e.g. poll_remain - mrp_avg_remain) is calculated and added uniformly 
+# across all constituencies, shifting the entire distribution up or down by a 
+# constant amount while preserving the relative geographic variation the MRP estimated.
+
+# Additive adjustment is preferred over multiplicative here because it maintains the
+# absolute differences between constituencies (e.g. a 10-point gap between two 
+# constituencies stays a 10-point gap after adjustment), whereas a multiplier would 
+# compress or inflate geographic variation unevenly — disproportionately affecting  
+# constituencies with extreme values and distorting the pattern of regional differences
+# the MRP was designed to recover. Additive adjustment also ensures probabilities 
+# remain on a linear scale and are less likely to push boundary constituencies 
+# below 0 or above 1 in implausible ways.
+
+
+preds_nato <- preds_nato %>%
+  mutate(
+    adjustment           = net_score_poll_cntry_avg - mrp_average,
+    net_score_reweighted = net_score_preds + adjustment
+  )
+
+
+preds_nato_reweighted <- preds_nato
+write.csv(preds_nato_reweighted, here("output", "preds_nato_reweighted_revised.csv"), row.names = FALSE)
+```
