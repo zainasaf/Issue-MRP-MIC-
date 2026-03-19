@@ -1,0 +1,97 @@
+---
+title: "Untitled"
+output: html_document
+date: "2026-02-17"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+
+
+library(tidyverse)
+library(here)
+
+
+country_avg_poll <- read.csv(here("output", "country_avg_headstate.csv"))
+
+
+aux <- read.csv("https://mrp-psf.ams3.digitaloceanspaces.com/other-files/const_data_full_new.csv")
+aux <- aux %>% mutate(const_name = gsub("Ynys Mon", "Ynys Môn", const_name))
+
+# Create country variable in aux
+aux <- aux %>%
+  mutate(
+    region_2 = case_when(
+      region_name %in% c(
+        "East Midlands", "East of England", "Greater London",
+        "North East England", "North West England", "South East England",
+        "South West England", "West Midlands", "Yorkshire and the Humber",
+        "London", "England"
+      ) ~ "England",
+      region_name == "Scotland" ~ "Scotland",
+      region_name == "Wales"    ~ "Wales",
+      TRUE ~ NA_character_
+    )
+  )
+
+# Load constituency-level MRP predictions
+preds_headstate <- read.csv(here("output", "headstate_constituency.csv"))
+
+# Join region_2 from aux
+preds_headstate <- preds_headstate %>%
+  dplyr::left_join(aux %>% dplyr::select(const_name, region_2),
+                   by = "const_name") %>%
+  dplyr::mutate(
+    region_2 = dplyr::case_when(
+      const_name == "Ynys MÃ´n" ~ "Wales",
+      TRUE                     ~ region_2
+    )
+  )
+
+# Rename net_score to make clear it is MRP net score 
+preds_headstate <- preds_headstate %>%
+  dplyr::rename(mrp_preds = mean_percent)
+
+# Prepare country-level poll averages, keeping the name country_avg_poll
+country_avg_poll <- country_avg_poll %>%
+  dplyr::rename(country_avg_poll = avg_head_of_state)
+
+# Join country-level poll averages onto predictions by country/region_2
+preds_headstate <- preds_headstate %>%
+  dplyr::left_join(
+    country_avg_poll %>% dplyr::select(country, country_avg_poll),
+    by = c("region_2" = "country")
+  )
+
+## compute MRP average per country
+preds_headstate <- preds_headstate %>%
+  dplyr::group_by(region_2) %>%
+  dplyr::mutate(mrp_average_headstate = mean(mrp_preds)) %>%
+  dplyr::ungroup()
+
+## compute multiplier and reweighted net score
+
+preds_headstate <- preds_headstate %>%
+  dplyr::mutate(
+    mult = country_avg_poll / mrp_average_headstate,          
+    headstate_score_reweighted = mrp_preds * mult            
+  )
+
+
+
+preds_headstate_reweighted <- preds_headstate %>% select(const_name, headstate_score_reweighted )
+
+
+
+
+
+
+write.csv(preds_headstate_reweighted, here("output", "preds_headstate_reweighted.csv"), row.names = FALSE)
+
+
+write.csv(preds_headstate, here("output", "preds_headstate.csv"), row.names = FALSE)
+
+
