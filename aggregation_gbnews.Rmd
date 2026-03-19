@@ -1,0 +1,45 @@
+---
+title: "GB News Bias MRP - Aggregation"
+output: html_document
+date: "2026-03-13"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(here)
+```
+
+```{r}
+
+df <- read_csv(here("data", "gbnews_bias_constituency_combined.csv"))
+
+df_summary <- df %>%
+  pivot_wider(
+    names_from  = level,
+    values_from = mean
+  ) %>%
+  group_by(const_name) %>%
+  summarise(
+    very_left  = sum(very_left,  na.rm = TRUE),
+    mod_left   = sum(mod_left,   na.rm = TRUE),
+    no_bias    = sum(no_bias,    na.rm = TRUE),
+    mod_right  = sum(mod_right,  na.rm = TRUE),
+    very_right = sum(very_right, na.rm = TRUE),
+    dont_know  = sum(dont_know,  na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+  net_score = very_right + mod_right - mod_left - very_left,
+    across(c(very_left, mod_left, no_bias, mod_right, very_right, dont_know, net_score), ~ . * 100)
+  )
+
+write.csv(df_summary, here("output", "gbnews_bias_constituency_summary.csv"), row.names = FALSE)
+
+
+
+
+```
