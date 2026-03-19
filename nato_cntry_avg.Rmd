@@ -1,0 +1,86 @@
+---
+title: "Untitled"
+output: html_document
+date: "2026-02-20"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+
+library(here)
+library(tidyverse)
+
+```
+
+```{r}
+
+
+
+
+
+
+polldata <- read.csv("https://mrp-psf.ams3.digitaloceanspaces.com/polls/winter_10k.csv")
+
+
+
+polldata <- polldata %>%
+  mutate(
+    nato_rl = case_when(
+      nato == "The UK should remain a member of NATO" ~ 1,
+      nato == "The UK should leave NATO"              ~ 0,
+      TRUE                                            ~ NA_real_   
+    )
+  )
+
+
+polldata_small <- polldata %>%
+  select(nato, nato_rl, region) %>%
+  mutate(
+    country = case_when(
+      region %in% c(
+        "East Midlands", "East of England", "Greater London",
+        "North East England", "North West England", "South East England",
+        "South West England", "West Midlands", "Yorkshire and the Humber",
+        "London", "England"
+      ) ~ "England",
+      region == "Scotland" ~ "Scotland",
+      region == "Wales"    ~ "Wales",
+      TRUE                 ~ NA_character_
+    )
+  )
+
+# Country averages
+
+country_avg_nato <- polldata_small %>%
+  filter(!is.na(country)) %>%                
+  group_by(country) %>%
+  summarise(
+    n_total   = n(),
+    n_remain  = sum(nato == "The UK should remain a member of NATO", na.rm = TRUE),
+    n_leave   = sum(nato == "The UK should leave NATO", na.rm = TRUE),
+    n_dk      = sum(nato == "Don’t know", na.rm = TRUE)
+  ) %>%
+  mutate(
+    remain_na  = n_remain / n_total * 100,
+    leave_nato = n_leave  / n_total * 100,
+    dont_know  = n_dk     / n_total * 100,
+    net_score  = remain_na - leave_nato    
+  )
+
+
+
+
+
+write.csv(country_avg_nato, here("output", "country_poll_nato.csv"), row.names = FALSE)
+
+
+
+
+
+
+
+
+
