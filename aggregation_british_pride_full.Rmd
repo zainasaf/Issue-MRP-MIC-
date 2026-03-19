@@ -1,0 +1,49 @@
+---
+title: "British Pride - Aggregation"
+output: html_document
+date: "2026-02-22"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(here)
+library(tidyverse)
+```
+
+```{r}
+
+df <- read_csv(here("data", "britpride_constituency_combined_revised.csv"))
+
+# level key:
+# 1 = Very ashamed
+# 2 = Quite ashamed
+# 3 = Neither proud nor ashamed
+# 4 = Quite proud
+# 5 = Very proud
+
+library(here)
+library(tidyverse)
+
+
+
+
+df_summary <- df %>%
+  group_by(const_name) %>%
+  summarise(
+    total_proud  = sum(mean[level %in% c(4, 5)], na.rm = TRUE),
+    total_ashamed = sum(mean[level %in% c(1, 2)], na.rm = TRUE),
+    net_score = total_proud - total_ashamed,
+    .groups = "drop"
+  ) %>%
+  mutate(across(c(total_proud, total_ashamed, net_score), ~ . * 100))
+
+write.csv(df_summary, here("output", "british_pride_constituency_summary.csv"), row.names = FALSE)
+
+level_averages <- df %>%
+  group_by(level) %>%
+  summarise(avg_percentage = mean(mean) * 100)
+
+```
