@@ -1,0 +1,37 @@
+---
+title: "Untitled"
+output: html_document
+date: "2026-02-26"
+---
+
+```{r}
+library(here)
+library(tidyverse)
+
+
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+```
+
+```{r}
+
+df <- read_csv(here("data", "echr_constituency_combined.csv"))
+
+
+
+
+df_summary <- df %>%
+  group_by(const_name) %>%
+  summarise(
+    remain_echr = sum(mean[level == "remain_echr"], na.rm = TRUE),
+    leave_echr  = sum(mean[level == "leave_echr"],  na.rm = TRUE),
+    dont_know   = sum(mean[level == "dont_know"],   na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(across(c(remain_echr, leave_echr, dont_know), ~ . * 100))
+
+write.csv(df_summary, here("output", "echr_constituency_summary_full.csv"), row.names = FALSE)

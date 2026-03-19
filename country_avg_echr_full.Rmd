@@ -1,0 +1,58 @@
+---
+title: "ECHR - Country Poll Averages"
+output: html_document
+date: "2026-02-22"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(here)
+```
+
+```{r}
+
+polldata <- read.csv("https://mrp-psf.ams3.digitaloceanspaces.com/polls/winter_10k.csv")
+
+
+# Recode echr into numeric
+polldata <- polldata %>%
+  mutate(echr_numeric_dk_sep = case_when(
+    echr == "Britain should leave the European Convention on Human Rights (ECHR)"  ~ 1,
+    echr == "Britain should remain a member of the European Convention on Human Rights (ECHR)" ~ 2,
+    echr == "Don't know" ~ 3,
+    TRUE ~ NA_real_
+  ))
+
+polldata_small <- polldata %>%
+  select(echr, echr_numeric_dk_sep, region)
+
+polldata_small <- polldata_small %>%
+  mutate(
+    country = case_when(
+      region %in% c("East Midlands", "East of England", "Greater London",
+                    "North East England", "North West England", "South East England",
+                    "South West England", "West Midlands", "Yorkshire and the Humber",
+                    "London", "England") ~ "England",
+      region == "Scotland" ~ "Scotland",
+      region == "Wales"    ~ "Wales",
+      TRUE ~ NA_character_
+    )
+  )
+
+country_avg_poll <- polldata_small %>%
+  filter(!is.na(country), !is.na(echr)) %>%
+  count(country, echr) %>%
+  group_by(country) %>%
+  mutate(prop = n / sum(n)) %>%
+  ungroup() %>%
+  select(country, echr, prop) %>%
+  pivot_wider(names_from = echr, values_from = prop) %>%
+  mutate(across(-country, ~ . * 100))
+
+write.csv(country_avg_poll, here("output", "country_avg_echr_full.csv"), row.names = FALSE)
+
+```

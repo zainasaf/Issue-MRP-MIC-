@@ -1,0 +1,100 @@
+---
+title: "ECHR - Reweighting"
+output: html_document
+date: "2026-02-22"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(here)
+```
+
+```{r}
+
+library(tidyverse)
+library(here)
+
+# Load poll country averages
+country_avg_poll <- read.csv(here("output", "country_avg_echr_full.csv"))
+
+# Rename poll columns
+country_avg_poll <- country_avg_poll %>%
+  rename(
+    poll_remain = "Britain.should.remain.a.member.of.the.European.Convention.on.Human.Rights..ECHR.",
+    poll_leave  = "Britain.should.leave.the.European.Convention.on.Human.Rights..ECHR.",
+    poll_dk     = "Don.t.know"
+  )
+
+# Load constituency geography data
+aux <- read.csv("https://mrp-psf.ams3.digitaloceanspaces.com/other-files/const_data_full_new.csv")
+aux <- aux %>%
+  mutate(const_name = gsub("Ynys Mon", "Ynys Môn", const_name)) %>%
+  mutate(
+    region_2 = case_when(
+      region_name %in% c(
+        "East Midlands", "East of England", "Greater London",
+        "North East England", "North West England", "South East England",
+        "South West England", "West Midlands", "Yorkshire and the Humber",
+        "London", "England"
+      ) ~ "England",
+      region_name == "Scotland" ~ "Scotland",
+      region_name == "Wales"    ~ "Wales",
+      TRUE ~ NA_character_
+    )
+  )
+
+# Load constituency-level MRP predictions
+preds_echr <- read.csv(here("output", "preds_echr_reweighted_full.csv"))
+
+# Join region onto predictions
+preds_echr <- preds_echr %>%
+  left_join(aux %>% select(const_name, region_2), by = "const_name") %>%
+  mutate(region_2 = case_when(
+    const_name == "Ynys MÃ´n" ~ "Wales",
+    TRUE ~ region_2
+  ))
+
+# Join poll country averages
+preds_echr <- preds_echr %>%
+  left_join(
+    country_avg_poll %>% select(country, poll_remain, poll_leave, poll_dk),
+    by = c("region_2" = "country")
+  )
+
+# Compute MRP country averages for each category
+preds_echr <- preds_echr %>%
+  group_by(region_2) %>%
+  mutate(
+    mrp_avg_remain = mean(remain_reweighted),
+    mrp_avg_leave  = mean(leave_reweighted),
+    mrp_avg_dk     = mean(dk_reweighted)
+  ) %>%
+  ungroup()
+
+# Apply additive adjustment to each category
+preds_echr_final <- preds_echr %>%
+  mutate(
+    remain_final = remain_reweighted + (poll_remain - mrp_avg_remain),
+    leave_final  = leave_reweighted  + (poll_leave  - mrp_avg_leave),
+    dk_final     = dk_reweighted     + (poll_dk     - mrp_avg_dk),
+    net_final    = remain_final - leave_final
+  ) %>%
+  select(const_name, remain_final, region_2, leave_final, dk_final, net_final)
+
+# Sanity check
+preds_echr %>%
+  group_by(region_2) %>%
+  summarise(
+    mrp_remain        = mean(remain_reweighted),
+    reweighted_remain = mean(remain_reweighted + (poll_remain - mrp_avg_remain)),
+    poll_remain       = first(poll_remain)
+  )
+
+write.csv(preds_echr_final, here("output", "preds_echr_final_full.csv"), row.names = FALSE)
+write.csv(preds_echr_reweighted, here("output", "preds_echr_reweighted.csv"), row.names = FALSE)
+
+```
