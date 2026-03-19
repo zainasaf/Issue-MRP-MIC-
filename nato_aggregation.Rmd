@@ -1,0 +1,52 @@
+---
+title: "aggregation"
+output: html_document
+date: "2026-02-17"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+
+
+library(tidyverse)
+library(here)
+
+
+```
+
+```{r}
+
+df <- read_csv(here("data", "nato_constituency_combined_revised .csv"))
+
+
+
+df_summary <- df %>%
+  pivot_wider(
+    names_from  = level,
+    values_from = mean
+  ) %>%
+  group_by(const_name) %>%
+  summarise(
+    remain_nato = sum(remain_nato, na.rm = TRUE),
+    leave_nato  = sum(leave_nato,  na.rm = TRUE),
+    dont_know   = sum(dont_know,   na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    net_score = remain_nato - leave_nato,
+    across(c(remain_nato, leave_nato, dont_know, net_score), ~ . * 100)
+  )
+
+
+
+
+
+write.csv(df_summary, here("output", "nato_constituency_summary_revised.csv"), row.names = FALSE)
+
+
+range(df_summary$leave_nato)
+range(df_summary$net_score)
+
