@@ -1,0 +1,61 @@
+---
+title: "Untitled"
+output: html_document
+date: "2026-02-17"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+
+library(here)
+library(tidyverse)
+
+```
+
+```{r}
+
+
+polldata <- read.csv("https://mrp-psf.ams3.digitaloceanspaces.com/polls/winter_10k.csv")
+
+
+polldata <- polldata %>%
+  mutate(head_of_state_numeric = case_when(
+    head_of_state == "Britain should have an elected politician, such as a President, as the head of state" ~ 0,
+    head_of_state == "Britain should continue to have a monarch as the head of state" ~ 1,
+    TRUE ~ NA_real_
+  ))
+
+
+polldata_small <- polldata %>% select(head_of_state, head_of_state_numeric, region)
+
+polldata_small <- polldata_small %>%
+  mutate(
+    country = case_when(
+      region %in% c("East Midlands", "East of England", "Greater London",
+                    "North East England", "North West England", "South East England",
+                    "South West England", "West Midlands", "Yorkshire and the Humber",
+                    "London", "England") ~ "England",
+      region == "Scotland" ~ "Scotland",
+      region == "Wales" ~ "Wales",
+      TRUE ~ NA_character_
+    )
+  )
+
+
+country_avg_headstate <- polldata_small %>%
+  filter(!is.na(country), !is.na(head_of_state_numeric)) %>%
+  group_by(country) %>%
+  summarise(avg_head_of_state = mean(head_of_state_numeric*100)) 
+  
+
+
+write.csv(country_avg_headstate, here("output", "country_avg_headstate.csv"), row.names = FALSE)
+    
+
+
+
+
+write.csv(country_avg_poll, here("output", "country_headstate.csv"), row.names = FALSE)
