@@ -1,0 +1,69 @@
+---
+title: "Untitled"
+output: html_document
+date: "2026-03-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(here)
+library(tidyverse)
+library(here)
+
+polldata <- read.csv("https://mrp-psf.ams3.digitaloceanspaces.com/polls/winter_10k.csv")
+
+polldata <- polldata %>%
+  mutate(
+    britishpride_numeric = case_when(
+      britishpride == "Very proud"                    ~ 5,
+      britishpride == "Quite proud"                   ~ 4,
+      britishpride == "Neither proud nor ashamed"     ~ 3,
+      britishpride == "Quite ashamed"                 ~ 2,
+      britishpride == "Very ashamed"                  ~ 1,
+      TRUE                                            ~ NA_real_
+    )
+  )
+
+polldata_small <- polldata %>%
+  select(britishpride, britishpride_numeric, region) %>%
+  mutate(
+    country = case_when(
+      region %in% c("East Midlands", "East of England", "Greater London",
+                    "North East England", "North West England", "South East England",
+                    "South West England", "West Midlands", "Yorkshire and the Humber",
+                    "London", "England") ~ "England",
+      region == "Scotland" ~ "Scotland",
+      region == "Wales"    ~ "Wales",
+      TRUE                 ~ NA_character_
+    )
+  )
+
+
+
+country_avg_poll_full <- polldata_small %>%
+  filter(!is.na(country), !is.na(britishpride_numeric)) %>%
+  count(country, britishpride_numeric) %>%
+  group_by(country) %>%
+  mutate(prop = n / sum(n) * 100) %>%
+  ungroup() %>%
+  select(country, britishpride_numeric, prop) %>%  # drop n before pivoting
+  pivot_wider(names_from = britishpride_numeric, values_from = prop) %>%
+  rename(very_ashamed = "1", quite_ashamed = "2", neither = "3",
+         quite_proud = "4", very_proud = "5")
+
+
+
+
+
+write.csv(country_avg_poll_full, here("output", "country_avg_poll_britishpride_full_revised.csv"), row.names = FALSE)
+
+country_avg_poll <- country_avg_poll_full %>%
+  mutate(net_score_poll_cntry_avg = very_proud + quite_proud - quite_ashamed - very_ashamed) %>%
+  select(country, net_score_poll_cntry_avg)
+
+write.csv(country_avg_poll, here("output", "country_avg_poll_britishpride_revised.csv"), row.names = FALSE)
+print(country_avg_poll)
