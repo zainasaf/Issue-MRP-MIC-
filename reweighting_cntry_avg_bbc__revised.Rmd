@@ -1,0 +1,124 @@
+---
+title: "Untitled"
+output: html_document
+date: "2026-02-17"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+```{r}
+
+
+library(tidyverse)
+library(here)
+
+# Load poll country averages
+country_avg_poll <- read.csv(here("output", "country_avg_poll.csv"))
+
+# Load constituency data
+aux <- read.csv("https://mrp-psf.ams3.digitaloceanspaces.com/other-files/const_data_full_new.csv")
+aux <- aux %>% mutate(const_name = gsub("Ynys Mon", "Ynys Môn", const_name))
+
+# Create country variable in aux
+aux <- aux %>%
+  mutate(
+    region_2 = case_when(
+      region_name %in% c(
+        "East Midlands", "East of England", "Greater London",
+        "North East England", "North West England", "South East England",
+        "South West England", "West Midlands", "Yorkshire and the Humber",
+        "London", "England"
+      ) ~ "England",
+      region_name == "Scotland" ~ "Scotland",
+      region_name == "Wales"    ~ "Wales",
+      TRUE ~ NA_character_
+    )
+  )
+
+# Load constituency-level MRP predictions
+
+
+preds_bbc <- read.csv(here("output", "bbc_bias_constituency_summary_revised.csv"))
+
+
+# Join region onto predictions
+preds_bbc <- preds_bbc %>%
+  left_join(aux %>% select(const_name, region_2), by = "const_name") %>%
+  mutate(
+    region_2 = case_when(
+      const_name == "Ynys MÃ´n" ~ "Wales",
+      TRUE                     ~ region_2
+    )
+  )
+
+
+
+preds_bbc <- preds_bbc %>%
+  left_join(
+    country_avg_poll %>% select(country, net_score_poll_cntry_avg),
+    by = c("region_2" = "country")
+  )
+
+## compute MRP average per country
+
+preds_bbc <- preds_bbc %>%
+  mutate(net_score = very_left + mod_left - mod_right - very_right) %>%
+  group_by(region_2) %>%
+  mutate(mrp_average = mean(net_score)) %>%
+  ungroup()
+
+
+
+## compute multiplier and reweighted net score (key step)
+preds_bbc_reweighted <- preds_bbc %>%
+  mutate(
+    mult = net_score_poll_cntry_avg / mrp_average,   # region-level multiplier
+    net_score_reweighted = net_score * mult    # rescale each constituency
+  )
+
+
+## compute additive adjustment and reweighted net score
+preds_bbc_additive <- preds_bbc %>%
+  mutate(
+    adjustment = net_score_poll_cntry_avg - mrp_average,   # gap between poll and MRP country average
+    net_score_reweighted = net_score + adjustment    # shift each constituency by that gap
+  )
+
+
+
+write.csv(preds_bbc_additive, here("output", "preds_bbc_additive_revised_full.csv"), row.names = FALSE)
+
+
+
+preds_bbc_reweighted <- preds_bbc %>% select(const_name, net_score_reweighted)
+
+
+preds_bbc_additive <- preds_bbc_additive %>% select(const_name, net_score_reweighted)
+
+
+
+neg_seats <- preds_bbc_reweighted %>%
+  filter(net_score_reweighted < 0) %>%
+  select(const_name, net_score_reweighted)
+
+ neg_seats
+
+
+ 
+ 
+ neg_seats_additive <- preds_bbc_additive %>%
+  filter(net_score_reweighted < 0) %>%
+  select(const_name, net_score_reweighted)
+
+ neg_seats
+ 
+
+write.csv(preds_bbc_reweighted, here("output", "preds_bbc_reweighted_revised.csv"), row.names = FALSE)
+
+
+
+
+write.csv(preds_bbc_additive, here("output", "preds_bbc_additive_revised.csv"), row.names = FALSE)

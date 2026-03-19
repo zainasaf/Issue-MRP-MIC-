@@ -1,0 +1,135 @@
+---
+title: "Untitled"
+output: html_document
+date: "2026-02-27"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+```
+
+```{r}
+
+---
+title: "BBC Bias - Reweighting (Full Categories)"
+output: html_document
+date: "2026-02-27"
+---
+  
+
+library(tidyverse)
+library(here)
+
+country_avg_poll <- read.csv(here("output", "country_avg_poll_full.csv"))
+
+
+names(country_avg_poll)
+
+
+country_avg_poll <- country_avg_poll %>%
+  rename(
+    poll_very_left  = "A.very.strong.left.wing.bias",
+    poll_mod_left   = "A.moderate.left.wing.bias",
+    poll_no_bias    = "No.left.or.right.wing.bias",
+    poll_mod_right  = "A.moderate.right.wing.bias",
+    poll_very_right = "A.very.strong.right.wing.bias",
+    poll_dk         = "Don.t.know"
+  )
+
+# Load constituency geography data
+aux <- read.csv("https://mrp-psf.ams3.digitaloceanspaces.com/other-files/const_data_full_new.csv")
+aux <- aux %>%
+  mutate(const_name = gsub("Ynys Mon", "Ynys Môn", const_name)) %>%
+  mutate(
+    region_2 = case_when(
+      region_name %in% c(
+        "East Midlands", "East of England", "Greater London",
+        "North East England", "North West England", "South East England",
+        "South West England", "West Midlands", "Yorkshire and the Humber",
+        "London", "England"
+      ) ~ "England",
+      region_name == "Scotland" ~ "Scotland",
+      region_name == "Wales"    ~ "Wales",
+      TRUE ~ NA_character_
+    )
+  )
+
+# Load constituency-level MRP predictions (full categories)
+preds_bbc <- read.csv(here("output", "bbc_bias_constituency_summary_revised.csv"))
+
+
+
+preds_bbc <- bbc_1 %>%
+  mutate(
+    any_bias = very_left + mod_left + mod_right + very_right,
+    no_bias_or_dk = no_bias + dont_know
+  )
+
+
+
+
+names(preds_bbc)
+
+# Join region onto predictions
+preds_bbc <- preds_bbc %>%
+  left_join(aux %>% select(const_name, region_2), by = "const_name") %>%
+  mutate(region_2 = case_when(
+    const_name == "Ynys MÃ´n" ~ "Wales",
+    TRUE ~ region_2
+  ))
+
+# Join poll country averages
+preds_bbc <- preds_bbc %>%
+  left_join(
+    country_avg_poll %>% select(country, poll_very_left, poll_mod_left,
+                                poll_no_bias, poll_mod_right, poll_very_right, poll_dk),
+    by = c("region_2" = "country")
+  )
+
+# Compute MRP country averages for each category
+preds_bbc <- preds_bbc %>%
+  group_by(region_2) %>%
+  mutate(
+    mrp_avg_very_left  = mean(very_left,  na.rm = TRUE),
+    mrp_avg_mod_left   = mean(mod_left,   na.rm = TRUE),
+    mrp_avg_no_bias    = mean(no_bias,    na.rm = TRUE),
+    mrp_avg_mod_right  = mean(mod_right,  na.rm = TRUE),
+    mrp_avg_very_right = mean(very_right, na.rm = TRUE),
+    mrp_avg_dk         = mean(dont_know,  na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# Apply additive adjustment to each category
+##The additive adjustment is preferred over a multiplier approach for reweighting constituency-level BBC bias estimates. Because the categories — very left, moderate left, no bias, don't know, moderate right, very right — are proportions that must collectively sum to 100%, a multiplier approach risks pushing individual category estimates outside plausible bounds, particularly for smaller categories like very strong left or right wing bias where even a modest multiplier could produce implausibly large values. The additive method instead applies a uniform shift to each category based on the gap between the poll and MRP country averages, preserving the relative differences between constituencies while keeping estimates within a realistic range.
+
+
+
+
+
+preds_bbc_reweighted <- preds_bbc %>%
+  mutate(
+    very_left_rw  = very_left  + (poll_very_left  - mrp_avg_very_left),
+    mod_left_rw   = mod_left   + (poll_mod_left   - mrp_avg_mod_left),
+    no_bias_rw    = no_bias    + (poll_no_bias    - mrp_avg_no_bias),
+    mod_right_rw  = mod_right  + (poll_mod_right  - mrp_avg_mod_right),
+    very_right_rw = very_right + (poll_very_right - mrp_avg_very_right),
+    dk_rw         = dont_know  + (poll_dk         - mrp_avg_dk),
+    net_rw        = (very_left_rw + mod_left_rw) - (very_right_rw + mod_right_rw)
+  ) %>%
+  select(const_name, region_2, very_left_rw, mod_left_rw, no_bias_rw,
+         mod_right_rw, very_right_rw, dk_rw, net_rw)
+
+# Sanity check - reweighted country averages should match poll averages
+preds_bbc %>%
+  group_by(region_2) %>%
+  summarise(
+    mrp_very_left        = mean(very_left),
+    reweighted_very_left = mean(very_left + (poll_very_left - mrp_avg_very_left)),
+    poll_very_left       = first(poll_very_left)
+  )
+
+write.csv(preds_bbc_reweighted, here("output", "preds_bbc_reweighted_full.csv"), row.names = FALSE)
+```
+
+

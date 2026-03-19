@@ -1,0 +1,40 @@
+---
+title: "Untitled"
+output: html_document
+date: "2026-02-25"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+
+
+
+
+
+
+df <- read_csv(here("data", "bbc_bias_constituency_combined_revised.csv"))
+
+df_summary <- df %>%
+  group_by(const_name) %>%
+  summarise(
+    very_left = sum(mean[level == "very_left"], na.rm = TRUE),
+    mod_left = sum(mean[level == "mod_left"], na.rm = TRUE),
+    no_bias = sum(mean[level == "no_bias"], na.rm = TRUE),
+    dont_know = sum(mean[level == "dont_know"], na.rm = TRUE),
+    mod_right = sum(mean[level == "mod_right"], na.rm = TRUE),
+    very_right = sum(mean[level == "very_right"], na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(across(-const_name, ~ . * 100))
+
+write.csv(df_summary, here("output", "bbc_bias_constituency_summary_revised.csv"), row.names = FALSE)
+
+level_averages <- df %>%
+  group_by(level) %>%
+  summarise(avg_percentage = mean(mean) * 100)
+
+
+
