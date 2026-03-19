@@ -1,0 +1,135 @@
+---
+title: "Untitled"
+output: html_document
+date: "2026-03-04"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+riots_1 <-  read.csv(here("output", "preds_riotslikely_reweighted.csv"))
+
+
+
+
+
+riots_2 <- riots_1 %>%
+  mutate(
+     likely = very_likely + quite_likely,
+    unlikely = very_unlikely + quite_unlikely
+  ) %>%
+  select(const_name, likely, unlikely, neither, net_score_reweighted)
+
+
+```
+## proprotion who say poud  
+
+summary(riots_2$likely) ## 72 % 
+
+## ashamed  ## 
+
+summary(riots_2$unlikely) ## 9 %
+
+ 
+
+summary(bbc_2$dont_know) #20
+
+
+
+
+## vey proud v somwaht proude - 
+
+
+
+```
+
+
+##
+
+negative_net <- brit_pride_1 %>%
+  filter(net_score_reweighted < 0) %>%
+  select(const_name, net_score_reweighted) %>%
+  arrange(net_score_reweighted)
+
+## No constineuncies where think has right wing bias 
+
+nrow(negative_net)
+negative_net
+
+
+greater_40 <- brit_pride_1 %>% 
+  filter(net_score_reweighted >= 40) %>%
+  select(const_name, net_score_reweighted) %>%
+  arrange(net_score_reweighted)
+
+### 244 constituneices where left > right by 40 or more 
+
+
+nrow(negative_net)
+negative_net
+
+
+region_likely <- riots_1 %>% group_by(region_2) %>%
+  summarise(region_avg = mean(net_score_reweighted)) 
+
+
+
+## England 68 
+## Scotland 71
+## Wales 71
+
+
+
+greater_50 <- riots_1 %>%
+  filter(net_score_reweighted >= 50) %>%
+  select(const_name, net_score_reweighted) %>%
+  arrange(net_score_reweighted)
+
+
+
+
+
+top_150 <- bbc_1 %>% 
+  slice_max(order_by = net_score_reweighted, n = 150, with_ties = FALSE)
+
+bottom_150 <- bbc_1 %>% 
+  slice_min(order_by = net_score_reweighted, n = 150, with_ties = FALSE)
+
+top_150_mean <- top_150 %>% 
+  summarise(mean_net_score = mean(net_score_reweighted, na.rm = TRUE))
+
+bottom_150_mean <- bottom_150 %>% 
+  summarise(mean_net_score = mean(net_score_reweighted, na.rm = TRUE))
+
+
+
+
+
+# Most proud
+most_likely <- riots_1 %>% slice_max(net_score_reweighted, n = 1) %>% select(const_name, net_score_reweighted)
+
+#most ashamed
+most_unlikley <- riots_1 %>% slice_min(net_score_reweighted, n = 1) %>% select(const_name, net_score_reweighted)
+
+# Median constituency
+median <- riots_1 %>% slice_min(abs(net_score_reweighted - median(net_score_reweighted)), n = 1) %>% select(const_name, net_score_reweighted)
+
+
+
+iqr_lower <- quantile(riots_1$net_score_reweighted, 0.25)
+iqr_upper <- quantile(riots_1$net_score_reweighted, 0.75)
+
+iqr_lower
+
+
+
+
+
+
+
+
+
+
+

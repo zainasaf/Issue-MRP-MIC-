@@ -1,0 +1,105 @@
+---
+title: "Untitled"
+output: html_document
+date: "2026-02-25"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+library(here)
+library(tidyverse)
+
+
+```
+
+```{r}
+headstate <- read.csv(here("output", "preds_headstate_reweighted.csv"))
+
+headstate_2 <- read.csv(here("output", "preds_headstate.csv"))
+
+## group by country 
+
+cntry_avg <- headstate_2 %>%
+               group_by(region_2) %>% 
+               summarise(avg_cntry_headstate = mean(headstate_score_reweighted)) %>%
+               ungroup()
+
+
+headstate %>% 
+  arrange(headstate_score_reweighted) %>% 
+  slice(1)
+
+
+
+
+# Average of top 150
+top_150_avg <- headstate %>% 
+  arrange(desc(headstate_score_reweighted)) %>% 
+  slice(1:150) %>% 
+  summarise(avg = mean(headstate_score_reweighted))
+
+
+
+## IQ range: 
+
+
+top_150 <- headstate %>% 
+  slice_max(order_by = headstate_score_reweighted, n = 150, with_ties = FALSE)
+
+bottom_150 <- headstate %>% 
+  slice_min(order_by = headstate_score_reweighted, n = 150, with_ties = FALSE)
+
+top_150_mean <- top_150 %>% 
+  summarise(mean_net_score = mean(headstate_score_reweighted, na.rm = TRUE))
+
+bottom_150_mean <- bottom_150 %>% 
+  summarise(mean_net_score = mean(headstate_score_reweighted, na.rm = TRUE))
+
+
+
+
+
+iqr_lower <- quantile(headstate$headstate_score_reweighted, 0.25)
+iqr_upper <- quantile(headstate$headstate_score_reweighted, 0.75)
+
+
+
+top_150_avg <- headstate_2 %>% 
+  arrange(desc(headstate_score_reweighted)) %>% 
+  slice(1:150) %>% 
+  count(region_2)
+
+
+
+bottom_150_avg <- headstate_2 %>% 
+  arrange((headstate_score_reweighted)) %>% 
+  slice(1:150) %>% 
+  count(region_2)
+
+# Average of bottom 150
+bottom_150_avg <- headstate %>% 
+  arrange(headstate_score_reweighted) %>% 
+  slice(1:150) %>% 
+  summarise(avg = mean(headstate_score_reweighted))
+
+
+
+### median, lowest, highest constiteuncy ## 
+
+
+
+
+# Most left bias
+most_monarchy <- headstate %>% slice_max(headstate_score_reweighted, n = 1) %>% select(const_name, headstate_score_reweighted)
+
+#most right bias
+most_republican <- headstate %>% slice_min(headstate_score_reweighted, n = 1) %>% select(const_name, headstate_score_reweighted)
+
+# Median constituency
+median <- headstate %>% slice_min(abs(headstate_score_reweighted - median(headstate_score_reweighted)), n = 1) %>% select(const_name, headstate_score_reweighted)
+
+

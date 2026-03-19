@@ -1,0 +1,128 @@
+---
+title: ''
+output: html_document
+date: "2026-03-09"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+
+
+library(here)
+library(tidyverse)
+
+
+ gbnews_1 <-  read.csv(here("output", "preds_gbnews_reweighted.csv"))
+ 
+ 
+ 
+ 
+ 
+ gbnews_2 <- gbnews_1%>%
+  mutate(
+    left_rw  = very_left + mod_left,
+    right_rw = very_right + mod_right
+  ) %>%
+  select(const_name, left_rw, right_rw, no_bias, dont_know, net_score_reweighted)
+
+
+ ```
+ ## proprotion who say left- bias 
+ 
+ summary(gbnews_2$left_rw) ## 9 % 
+ 
+## no bias ## 
+ 
+ summary(gbnews_2$no_bias) ## 19
+ 
+ 
+ summary(gbnews_2$right_rw)  ##40 
+ 
+ summary(gbnews_2$dont_know) #32
+ 
+ 
+
+ 
+ ## vey left v moderate left - 
+ 
+ summary(gbnews_1$very_right) -# 22 %
+ summary(gbnews_1$mod_right)  ## 18%
+ 
+ 
+ ```
+ 
+ 
+ ##
+ 
+right_bias <- gbnews_1 %>%
+  select(const_name, net_score_reweighted) %>%
+    filter(net_score_reweighted > 0) %>%
+  arrange(net_score_reweighted)
+## every  ocnstitsutnecy think has right bias  
+ 
+
+greater_30 <- gbnews_1 %>% 
+    filter(net_score_reweighted >= 30) %>%
+  select(const_name, net_score_reweighted) %>%
+  arrange(net_score_reweighted)
+
+### 46 constituneices where left > right by 30 or more 
+
+
+nrow(negative_net)
+negative_net
+
+
+gbnews_region <- gbnews %>% group_by(region_2) %>%
+  summarise(region_avg = mean(net_score_reweighted)) 
+
+## england - 32% 
+## scotland 35% 
+## wales 35%
+
+
+
+top_150 <- gbnews_1 %>% 
+  slice_max(order_by = net_score_reweighted, n = 150, with_ties = FALSE)
+
+bottom_150 <- gbnews_1 %>% 
+  slice_min(order_by = net_score_reweighted, n = 150, with_ties = FALSE)
+
+top_150_mean <- top_150 %>% 
+  summarise(mean_net_score = mean(net_score_reweighted, na.rm = TRUE))
+
+bottom_150_mean <- bottom_150 %>% 
+  summarise(mean_net_score = mean(net_score_reweighted, na.rm = TRUE))
+
+
+
+dontknow <- gbnews_1 %>% 
+  
+
+# Most left bias
+most_left <- gbnews_1 %>% slice_min(net_score_reweighted, n = 1) %>% select(const_name, net_score_reweighted)
+
+#most right bias
+most_right <- gbnews_1%>% slice_max(net_score_reweighted, n = 1) %>% select(const_name, net_score_reweighted)
+
+# Median constituency
+median <- gbnews_1 %>% slice_min(abs(net_score_reweighted - median(net_score_reweighted)), n = 1) %>% select(const_name, net_score_reweighted)
+
+
+
+iqr_lower <- quantile(gbnews_1$net_score_reweighted, 0.25)
+iqr_upper <- quantile(gbnews_1$net_score_reweighted, 0.75)
+
+iqr_lower
+
+
+
+dontknow_25 <- gbnews_1 %>%
+  filter(dont_know >= 25) %>%
+  select(const_name, dont_know) %>%
+  arrange(dont_know)
+
+

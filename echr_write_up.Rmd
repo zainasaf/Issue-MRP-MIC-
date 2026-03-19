@@ -1,0 +1,72 @@
+---
+title: "Untitled"
+output: html_document
+date: "2026-02-26"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+```{r}
+library(here)
+library(tidyverse)
+
+echr <- read.csv(here("output", "preds_echr_final_full.csv"))
+
+
+echr %>%
+  filter(net_final >= 1 & net_final <= 10) %>%
+  nrow()
+
+echr %>%
+    filter(net_final <= 0) %>%
+  nrow()
+  
+
+
+# Average of top 150
+top_150_avg <- echr %>% 
+  arrange(desc(net_final)) %>% 
+  slice(1:150) %>% 
+  summarise(avg = mean(net_final))
+
+
+
+top_150_avg <- echr %>% 
+  arrange(desc(net_final)) %>% 
+  slice(1:150) %>% 
+  count(region_2)
+
+
+
+bottom_150_avg <- echr %>% 
+  arrange((net_final)) %>% 
+  slice(1:150) %>% 
+  count(region_2)
+
+# Average of bottom 150
+bottom_150_avg <- echr %>% 
+  arrange(net_final) %>% 
+  slice(1:150) %>% 
+  summarise(avg = mean(net_final))
+
+echr_region <- echr %>% 
+  group_by(region_2) %>%
+  summarise(net_final_region = mean(net_final))
+
+
+
+
+
+# Most pro -echr 
+most_pro_leave <- echr %>% slice_max(net_final, n = 1) %>% select(const_name, net_final)
+
+#most anti echr 
+most_anti_rmain <- echr %>% slice_min(net_final, n = 1) %>% select(const_name, net_final)
+
+# Median constituency
+median <- echr %>% slice_min(abs(net_final - median(net_final)), n = 1) %>% select(const_name, net_final)
+
+

@@ -1,0 +1,92 @@
+---
+title: "Nato Write up"
+output: html_document
+date: "2026-02-26"
+---
+
+```{r} setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE
+```
+
+```{r}
+
+library(here)
+library(tidyverse)
+
+```
+
+```{r}
+
+
+nato <- read.csv(here("output", "preds_nato_reweighted_revised.csv"))
+
+
+
+
+
+
+## group by country 
+
+cntry_avg <- nato %>%
+               group_by(region_2) %>% 
+               summarise(avg_cntry_nato_net_rewegithed = mean(net_score_reweighted)) %>%
+               ungroup()
+
+
+
+# Average of top 150
+top_150_avg <- nato %>% 
+  arrange(desc(net_score_reweighted)) %>% 
+  slice(1:150) %>% 
+  summarise(avg = mean(net_score_reweighted))
+
+
+
+top_150_avg <- nato %>% 
+  arrange(desc(net_score_reweighted)) %>% 
+  slice(1:150) %>% 
+  count(region_2)
+
+
+
+bottom_150_avg <- nato %>% 
+  arrange((net_score_reweighted)) %>% 
+  slice(1:150) %>% 
+  count(region_2)
+
+# Average of bottom 150
+bottom_150_avg <- nato %>% 
+  arrange(net_score_reweighted) %>% 
+  slice(1:150) %>% 
+  summarise(avg = mean(net_score_reweighted))
+
+
+## number of seats less than 50 
+
+less_50 <- nato %>%
+  filter(net_score_reweighted < 50) %>%
+  select(const_name, net_score_reweighted) %>%
+  arrange(net_score_reweighted)
+
+
+
+low_10 <- nato %>%
+  arrange(net_score_reweighted) %>%
+  slice(1:10) %>%
+  select(const_name,net_score_reweighted)
+
+
+
+
+
+
+# Most pro-NATO
+most_nato <- nato %>% slice_max(net_score_reweighted, n = 1) %>% select(const_name, net_score_reweighted)
+
+#most right bias
+least_nato <- nato %>% slice_min(net_score_reweighted, n = 1) %>% select(const_name, net_score_reweighted)
+
+# Median constituency
+median <- nato %>% slice_min(abs(net_score_reweighted - median(net_score_reweighted)), n = 1) %>% select(const_name, net_score_reweighted)
+
+
